@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>夯拉排行榜</title>
+<style>
+:root{
+  --page:#ffffff; --ink:#000000; --muted:#555555; --row:#c8c8c8; --line:#000000;
+  --chip:#ffffff; --chip-line:#555555; --pool:#ececec; --btn:#000000; --btn-ink:#ffffff; --field:#ffffff;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --page:#161616; --ink:#f2f2f2; --muted:#aaaaaa; --row:#3a3a3a; --line:#000000;
+    --chip:#262626; --chip-line:#777777; --pool:#222222; --btn:#f2f2f2; --btn-ink:#000000; --field:#202020;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --page:#161616; --ink:#f2f2f2; --muted:#aaaaaa; --row:#3a3a3a; --line:#000000;
+  --chip:#262626; --chip-line:#777777; --pool:#222222; --btn:#f2f2f2; --btn-ink:#000000; --field:#202020;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);
+  font-family:"PingFang SC","Hiragino Sans GB","Noto Sans SC","Noto Sans CJK SC","Source Han Sans SC","Microsoft YaHei",system-ui,sans-serif;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.wrap{max-width:1200px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+[hidden]{display:none!important}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:16px}
+h1{margin:0;font-size:clamp(26px,4vw,40px);font-weight:900;letter-spacing:.02em;word-break:break-all}
+h2{font-size:18px;margin:0 0 8px;font-weight:900}
+.hint{margin:6px 0 0;color:var(--muted);font-size:14px;line-height:1.5}
+.tools{display:flex;flex-wrap:wrap;gap:8px}
+button{font:inherit;font-size:14px;font-weight:500;border:2px solid var(--btn);background:transparent;color:var(--ink);
+  padding:7px 14px;border-radius:6px;cursor:pointer}
+button.primary{background:var(--btn);color:var(--btn-ink)}
+button:focus-visible,.chip:focus-visible,input:focus-visible,textarea:focus-visible,.label:focus-visible{outline:3px solid #2f7de1;outline-offset:2px}
+input[type=text],textarea{font:inherit;font-size:15px;padding:8px 12px;border:2px solid var(--chip-line);border-radius:6px;background:var(--field);color:var(--ink);width:100%}
+textarea{min-height:180px;resize:vertical;line-height:1.6}
+
+/* setup */
+.card{border:3px solid var(--line);border-radius:10px;padding:18px;margin-bottom:18px}
+.field{margin-bottom:16px}
+.field>label,.field>.lab{display:block;font-weight:700;margin-bottom:6px}
+.count{color:var(--muted);font-size:13px;margin-top:6px}
+.schemes{display:flex;flex-wrap:wrap;gap:8px}
+.schemes button[aria-pressed="true"]{background:var(--btn);color:var(--btn-ink)}
+.tedit{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.trow{display:flex;gap:8px;align-items:center}
+.trow input[type=text]{flex:1;min-width:0}
+.trow input[type=color]{width:44px;height:40px;padding:2px;border:2px solid var(--chip-line);border-radius:6px;background:var(--field);flex:none}
+.trow .sw{width:40px;height:40px;border:2px solid var(--line);border-radius:6px;flex:none}
+.trow button{padding:6px 10px;flex:none}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.big{font-size:16px;padding:10px 20px}
+
+/* board */
+.board{border:4px solid var(--line);border-bottom:0}
+.tier{display:grid;grid-template-columns:clamp(84px,17vw,190px) 1fr;border-bottom:4px solid var(--line);min-height:110px}
+.label{display:flex;align-items:center;justify-content:center;border-right:4px solid var(--line);
+  font-weight:900;color:#000;font-size:clamp(24px,5vw,54px);line-height:1.05;padding:8px;text-align:center;word-break:break-all;cursor:text}
+.label.long{font-size:clamp(18px,3.6vw,42px)}
+.label.xlong{font-size:clamp(14px,2.4vw,28px)}
+.zone{background:var(--row);display:flex;flex-wrap:wrap;align-content:flex-start;gap:10px;padding:12px;min-height:102px}
+.zone.over{box-shadow:inset 0 0 0 3px #2f7de1}
+.chip{position:relative;display:inline-flex;align-items:center;gap:6px;background:var(--chip);color:var(--ink);
+  border:2px solid var(--chip-line);border-radius:8px;padding:8px 12px;font-size:clamp(14px,1.8vw,18px);
+  cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none;white-space:nowrap;max-width:100%}
+.chip span{overflow:hidden;text-overflow:ellipsis}
+.chip.ghost{opacity:.3}
+.chip .x{border:0;padding:0 0 0 2px;font-size:16px;line-height:1;color:var(--muted);background:none;cursor:pointer;opacity:.6}
+.chip .x:hover{opacity:1}
+.drag{position:fixed;left:0;top:0;pointer-events:none;z-index:50;cursor:grabbing;box-shadow:0 8px 22px rgba(0,0,0,.35)}
+.marker{width:4px;align-self:stretch;min-height:36px;background:#2f7de1;border-radius:2px}
+.poolbox{margin-top:22px}
+#pool{background:var(--pool);border:2px dashed var(--chip-line);border-radius:8px;min-height:72px}
+#pool:empty::before{content:"拖到这里就是暂不排名，也可以在下面添加新标签。";color:var(--muted);font-size:14px;padding:6px}
+.add{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.add input{flex:1 1 220px;width:auto}
+.subtools{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+
+/* dialog */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:100}
+.modal .box{background:var(--page);color:var(--ink);border:3px solid var(--line);border-radius:10px;padding:16px;width:100%;max-width:560px;max-height:90vh;overflow:auto}
+.modal .box p{margin-top:0}
+.modal textarea{height:200px;font-size:13px;word-break:break-all}
+.modal img{display:block;width:100%;height:auto;border:2px solid var(--chip-line);border-radius:6px;-webkit-touch-callout:default;user-select:auto}
+.modal .row{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+  background:var(--btn);color:var(--btn-ink);padding:8px 16px;border-radius:6px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:200;max-width:90vw}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion: reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ========== 建榜 ========== -->
+<section id="setup">
+  <header>
+    <div>
+      <h1>夯拉排行榜</h1>
+      <p class="hint">输入你想排的东西：奶茶、球星、城市……拖拽排名，再把链接发给朋友一起玩。</p>
+    </div>
+    <div class="tools"><button id="demoBtn">看示例</button></div>
+  </header>
+
+  <div class="card">
+    <div class="field">
+      <label for="titleIn">榜单标题</label>
+      <input type="text" id="titleIn" maxlength="40" placeholder="例如：深圳商场">
+    </div>
+    <div class="field">
+      <label for="tagsIn">标签</label>
+      <textarea id="tagsIn" placeholder="一行一个，或者用逗号、顿号隔开。&#10;例如：喜茶、奈雪，霸王茶姬&#10;蜜雪冰城"></textarea>
+      <div class="count" id="tagCount">0 个标签</div>
+    </div>
+    <div class="field">
+      <span class="lab">档位方案</span>
+      <div class="schemes" id="schemes">
+        <button type="button" data-s="hang">夯拉五档</button>
+        <button type="button" data-s="sabcd">S/A/B/C/D</button>
+        <button type="button" data-s="custom">自定义</button>
+      </div>
+      <div class="tedit" id="tedit"></div>
+      <div style="margin-top:8px" id="addTierWrap"><button type="button" id="addTier">＋ 添加档位</button></div>
+    </div>
+    <div class="actions">
+      <button class="primary big" id="startBtn">开始排名</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="field" style="margin-bottom:8px">
+      <label for="linkIn">收到朋友的链接？粘贴到这里打开</label>
+      <div class="add" style="margin-top:0">
+        <input type="text" id="linkIn" placeholder="https://…#d=…">
+        <button id="linkBtn">打开</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== 排名 ========== -->
+<section id="rank" hidden>
+  <header>
+    <div>
+      <h1 id="rankTitle"></h1>
+      <p class="hint">按住标签拖到任意一档，档内也能调顺序。点档名可以改名。选中标签后：↑↓ 换档，←→ 调顺序。</p>
+    </div>
+    <div class="tools">
+      <button class="primary" id="shareBlank">分享空白模板</button>
+      <button class="primary" id="shareMine">分享我的排名</button>
+      <button id="exportImg">导出图片</button>
+      <button id="copyText">复制文字版</button>
+    </div>
+  </header>
+
+  <div class="board" id="board"></div>
+
+  <section class="poolbox">
+    <h2>待排区</h2>
+    <div class="zone" id="pool" data-zone="pool" aria-label="待排区"></div>
+    <form class="add" id="addForm">
+      <input type="text" id="addInput" maxlength="30" placeholder="添加新标签（可用逗号一次加多个）" aria-label="新标签">
+      <button type="submit">添加到待排区</button>
+    </form>
+  </section>
+
+  <div class="subtools">
+    <button id="clearBtn">清空重排</button>
+    <button id="editBtn">返回编辑标签</button>
+    <button id="homeBtn">新建榜单</button>
+  </div>
+</section>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+"use strict";
+/* ---------- 档位方案 ---------- */
+const SCHEMES={
+  hang:[["夯","#E5402F"],["顶级","#EDBB4E"],["人上人","#FBF73A"],["NPC","#F8EBCB"],["拉完了","#FFFFFF"]],
+  sabcd:[["S","#FF7F7F"],["A","#FFBF7F"],["B","#FFDF7F"],["C","#BFFF7F"],["D","#7FBFFF"]]
+};
+const DEMO={t:"深圳商场",s:SCHEMES.hang,k:[
+  ["深圳万象城","万象天地"],
+  ["福田星河COCO Park","深圳湾万象城","罗湖益田假日广场","深业上城","壹方天地","前海壹方城","大运天地","前海欢乐港湾"],
+  ["卓悦中心","欢乐海岸","八号仓"],
+  ["后浪新天地","南山海岸城","KK MALL","卓悦汇","仁恒梦中心","宝安大仟里","皇庭广场","来福士广场","龙岗万科广场","万象前海","万象食家","KK ONE","领展中心城","龙华九方","K11 ECOAST","坂田万科广场"],
+  ["光明蓝鲸世界","坪山益田假日世界","盐田壹海城"],
+  []
+]};
+
+/* state: {title, tiers:[{n,c,items:[]}], pool:[]} — 只在内存里 */
+let state=null;
+let draftTiers=SCHEMES.hang.map(a=>a.slice());
+let draftScheme="hang";
+
+const $=id=>document.getElementById(id);
+
+/* ---------- 标签解析 ---------- */
+function parseTags(txt){
+  const out=[],seen=new Set();
+  txt.split(/[\n\r,，、;；]+/).forEach(s=>{
+    s=s.replace(/\s+/g," ").trim();
+    if(s&&!seen.has(s)){seen.add(s);out.push(s)}
+  });
+  return out;
+}
+
+/* ---------- 建榜界面 ---------- */
+function renderSchemeBtns(){
+  [...$("schemes").children].forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.s===draftScheme)));
+  $("addTierWrap").hidden=draftScheme!=="custom";
+}
+function renderTierEditor(){
+  const box=$("tedit");box.innerHTML="";
+  const custom=draftScheme==="custom";
+  draftTiers.forEach((t,i)=>{
+    const r=document.createElement("div");r.className="trow";
+    if(custom){
+      const c=document.createElement("input");c.type="color";c.value=t[1];c.setAttribute("aria-label","第"+(i+1)+"档颜色");
+      c.oninput=()=>{t[1]=c.value};
+      const n=document.createElement("input");n.type="text";n.value=t[0];n.maxLength=12;n.setAttribute("aria-label","第"+(i+1)+"档名称");
+      n.oninput=()=>{t[0]=n.value};
+      const up=mk("button","↑");up.type="button";up.setAttribute("aria-label","上移");up.disabled=i===0;
+      up.onclick=()=>{[draftTiers[i-1],draftTiers[i]]=[draftTiers[i],draftTiers[i-1]];renderTierEditor()};
+      const del=mk("button","删除");del.type="button";del.disabled=draftTiers.length<=1;
+      del.onclick=()=>{draftTiers.splice(i,1);renderTierEditor()};
+      r.append(c,n,up,del);
+    }else{
+      const sw=document.createElement("div");sw.className="sw";sw.style.background=t[1];
+      const n=mk("span",t[0]);n.style.fontWeight="700";
+      r.append(sw,n);
+    }
+    box.append(r);
+  });
+}
+function mk(tag,txt){const e=document.createElement(tag);e.textContent=txt;return e}
+$("schemes").onclick=e=>{
+  const b=e.target.closest("button");if(!b)return;
+  const s=b.dataset.s;
+  if(s!=="custom") draftTiers=SCHEMES[s].map(a=>a.slice());
+  draftScheme=s;renderSchemeBtns();renderTierEditor();
+};
+$("addTier").onclick=()=>{draftTiers.push(["新档位","#BBBBBB"]);renderTierEditor()};
+$("tagsIn").oninput=()=>{$("tagCount").textContent=parseTags($("tagsIn").value).length+" 个标签"};
+
+$("startBtn").onclick=()=>{
+  const title=$("titleIn").value.trim()||"我的排行榜";
+  const tags=parseTags($("tagsIn").value);
+  if(!tags.length){toast("先输入至少一个标签");$("tagsIn").focus();return}
+  const tiers=draftTiers.map(t=>({n:(t[0]||"").trim()||"?",c:t[1],items:[]}));
+  if(!tiers.length){toast("至少要有一个档位");return}
+  // 保留之前已经排好的位置（从"返回编辑标签"回来时）
+  if(state){
+    const keep=new Set(tags);
+    state.tiers.forEach((ot,i)=>{if(tiers[i]) tiers[i].items=ot.items.filter(x=>keep.has(x))});
+  }
+  const placed=new Set(tiers.flatMap(t=>t.items));
+  state={title,tiers,pool:tags.filter(x=>!placed.has(x))};
+  showRank();
+};
+$("demoBtn").onclick=()=>{loadData(DEMO);showRank()};
+$("linkBtn").onclick=()=>{
+  const v=$("linkIn").value.trim();const m=v.match(/#d=([A-Za-z0-9_\-]+)/)||v.match(/^([A-Za-z0-9_\-]{8,})$/);
+  if(!m){toast("没找到 #d= 链接");return}
+  try{loadData(decode(m[1]));showRank();$("linkIn").value=""}catch(e){toast("链接坏了，打不开")}
+};
+
+function showSetup(fill){
+  if(fill&&state){
+    $("titleIn").value=state.title;
+    $("tagsIn").value=allTags().join("\n");
+    draftTiers=state.tiers.map(t=>[t.n,t.c]);
+    draftScheme=matchScheme(draftTiers);
+  }
+  $("tagsIn").oninput();
+  renderSchemeBtns();renderTierEditor();
+  $("setup").hidden=false;$("rank").hidden=true;scrollTo(0,0);
+}
+function matchScheme(ts){
+  for(const k in SCHEMES){const s=SCHEMES[k];
+    if(s.length===ts.length&&s.every((a,i)=>a[0]===ts[i][0]&&a[1].toLowerCase()===ts[i][1].toLowerCase()))return k}
+  return "custom";
+}
+function showRank(){
+  $("setup").hidden=true;$("rank").hidden=false;
+  $("rankTitle").textContent=state.title;document.title=state.title+" · 夯拉排行榜";
+  buildBoard();render();scrollTo(0,0);
+}
+
+/* ---------- 排名 ---------- */
+const allTags=()=>state.tiers.flatMap(t=>t.items).concat(state.pool);
+function list(z){return z==="pool"?state.pool:state.tiers[+z].items}
+function zoneOrder(){return state.tiers.map((_,i)=>String(i)).concat("pool")}
+function isLight(hex){
+  const h=hex.replace("#","");const r=parseInt(h.substr(0,2),16),g=parseInt(h.substr(2,2),16),b=parseInt(h.substr(4,2),16);
+  return (r*299+g*587+b*114)/1000>140;
+}
+function buildBoard(){
+  const board=$("board");board.innerHTML="";
+  state.tiers.forEach((t,i)=>{
+    const row=document.createElement("div");row.className="tier";
+    const lab=document.createElement("div");
+    lab.style.background=t.c;lab.style.color=isLight(t.c)?"#000":"#fff";
+    lab.contentEditable="true";lab.spellcheck=false;lab.setAttribute("role","textbox");lab.setAttribute("aria-label","档名，点击修改");
+    lab.textContent=t.n;sizeLabel(lab);
+    lab.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();lab.blur()}};
+    lab.oninput=()=>sizeLabel(lab);
+    lab.onblur=()=>{const v=lab.textContent.replace(/\s+/g," ").trim().slice(0,12);
+      if(v){t.n=v}lab.textContent=t.n;sizeLabel(lab)};
+    const z=document.createElement("div");z.className="zone";z.dataset.zone=String(i);z.setAttribute("aria-label",t.n+"档");
+    row.append(lab,z);board.append(row);
+  });
+}
+function sizeLabel(l){const n=[...l.textContent].length;l.className="label"+(n>4?" xlong":n>2?" long":"")}
+const zones=()=>[...document.querySelectorAll("#rank .zone")];
+
+function render(){
+  zones().forEach(z=>{z.innerHTML="";list(z.dataset.zone).forEach(name=>z.append(makeChip(name)))});
+}
+function makeChip(name){
+  const c=document.createElement("div");c.className="chip";c.tabIndex=0;c.dataset.name=name;
+  c.setAttribute("role","button");c.setAttribute("aria-label",name+"。方向键上下换档，左右调顺序，Delete 删除");
+  const s=mk("span",name);c.append(s);
+  const x=mk("button","×");x.className="x";x.type="button";x.setAttribute("aria-label","删除"+name);x.tabIndex=-1;
+  x.addEventListener("pointerdown",e=>e.stopPropagation());
+  x.addEventListener("click",e=>{e.stopPropagation();removeName(name);render();toast("已删除 "+name)});
+  c.append(x);
+  c.addEventListener("pointerdown",startDrag);
+  c.addEventListener("keydown",onKey);
+  return c;
+}
+function where(name){for(const z of zoneOrder()){const i=list(z).indexOf(name);if(i>-1)return[z,i]}return[null,-1]}
+function removeName(name){const[z,i]=where(name);if(z)list(z).splice(i,1)}
+
+function onKey(e){
+  const name=e.currentTarget.dataset.name;const[z,i]=where(name);const L=list(z);let moved=false;
+  const ord=zoneOrder();
+  if(e.key==="ArrowUp"||e.key==="ArrowDown"){
+    const ni=ord.indexOf(z)+(e.key==="ArrowUp"?-1:1);
+    if(ni>=0&&ni<ord.length){L.splice(i,1);list(ord[ni]).push(name);moved=true}
+  }else if(e.key==="ArrowLeft"&&i>0){[L[i-1],L[i]]=[L[i],L[i-1]];moved=true}
+  else if(e.key==="ArrowRight"&&i<L.length-1){[L[i+1],L[i]]=[L[i],L[i+1]];moved=true}
+  else if(e.key==="Delete"||e.key==="Backspace"){e.preventDefault();removeName(name);render();toast("已删除 "+name);return}
+  if(moved){e.preventDefault();render();
+    const el=[...document.querySelectorAll(".chip")].find(c=>c.dataset.name===name);if(el)el.focus()}
+}
+
+/* 指针拖拽 */
+let drag=null;
+function startDrag(e){
+  if(e.button!==undefined&&e.button!==0)return;
+  const src=e.currentTarget;const r=src.getBoundingClientRect();
+  drag={name:src.dataset.name,src,dx:e.clientX-r.left,dy:e.clientY-r.top,startX:e.clientX,startY:e.clientY,active:false,ghost:null,marker:null,target:null,index:0,y:e.clientY};
+  src.setPointerCapture(e.pointerId);
+  src.addEventListener("pointermove",moveDrag);
+  src.addEventListener("pointerup",endDrag);
+  src.addEventListener("pointercancel",cancelDrag);
+}
+function activate(){
+  drag.active=true;
+  const g=drag.src.cloneNode(true);g.classList.add("drag");g.style.width=drag.src.offsetWidth+"px";
+  document.body.append(g);drag.ghost=g;drag.src.classList.add("ghost");
+  drag.marker=document.createElement("div");drag.marker.className="marker";
+  scrollLoop();
+}
+function moveDrag(e){
+  if(!drag)return;
+  if(!drag.active){if(Math.hypot(e.clientX-drag.startX,e.clientY-drag.startY)<5)return;activate()}
+  drag.y=e.clientY;
+  drag.ghost.style.transform=`translate(${e.clientX-drag.dx}px,${e.clientY-drag.dy}px) rotate(-2deg)`;
+  const el=document.elementFromPoint(e.clientX,e.clientY);
+  let z=el&&el.closest?el.closest("#rank .zone"):null;
+  if(!z){const row=el&&el.closest?el.closest(".tier"):null;if(row)z=row.querySelector(".zone")}
+  zones().forEach(q=>q.classList.toggle("over",q===z));
+  if(!z){drag.target=null;drag.marker.remove();return}
+  const chips=[...z.querySelectorAll(".chip")].filter(c=>c!==drag.src);
+  let idx=chips.length;
+  for(let i=0;i<chips.length;i++){
+    const r=chips[i].getBoundingClientRect();
+    if(e.clientY<r.top){idx=i;break}
+    if(e.clientY<=r.bottom&&e.clientX<r.left+r.width/2){idx=i;break}
+  }
+  drag.target=z.dataset.zone;drag.index=idx;
+  if(idx<chips.length)z.insertBefore(drag.marker,chips[idx]);else z.append(drag.marker);
+}
+function scrollLoop(){
+  if(!drag||!drag.active)return;
+  const m=70,y=drag.y;
+  if(y<m)scrollBy(0,-Math.ceil((m-y)/5));else if(y>innerHeight-m)scrollBy(0,Math.ceil((y-innerHeight+m)/5));
+  requestAnimationFrame(scrollLoop);
+}
+function cleanup(){
+  const s=drag.src;s.removeEventListener("pointermove",moveDrag);s.removeEventListener("pointerup",endDrag);s.removeEventListener("pointercancel",cancelDrag);
+  if(drag.ghost)drag.ghost.remove();if(drag.marker)drag.marker.remove();s.classList.remove("ghost");
+  zones().forEach(q=>q.classList.remove("over"));
+}
+function endDrag(){
+  if(!drag)return;const d=drag;cleanup();drag=null;
+  if(!d.active||!d.target)return;
+  const[oz,oi]=where(d.name);
+  let idx=d.index;
+  removeName(d.name);
+  list(d.target).splice(idx,0,d.name);render();
+}
+function cancelDrag(){if(!drag)return;cleanup();drag=null}
+
+/* 工具 */
+$("addForm").onsubmit=e=>{
+  e.preventDefault();const inp=$("addInput");const tags=parseTags(inp.value);
+  if(!tags.length)return;
+  const added=[],dup=[];
+  tags.forEach(v=>{if(where(v)[0])dup.push(v);else{state.pool.push(v);added.push(v)}});
+  render();inp.value="";
+  toast(added.length?("已添加 "+added.join("、")+(dup.length?"（"+dup.length+" 个重复已跳过）":"")):(dup.join("、")+" 已经在榜上了"));
+};
+$("clearBtn").onclick=()=>{
+  askConfirm("把所有标签放回待排区，从头开始排？",()=>{
+  state.pool=allTags();state.tiers.forEach(t=>t.items=[]);render();toast("已全部放回待排区");});
+};
+function askConfirm(msg,ok){
+  const m=openModal();m.box.append(mk("p",msg));
+  const r=document.createElement("div");r.className="row";
+  const no=mk("button","取消");no.onclick=m.close;
+  const yes=mk("button","确定");yes.className="primary";yes.onclick=()=>{m.close();ok()};
+  r.append(no,yes);m.box.append(r);yes.focus();
+}
+$("editBtn").onclick=()=>showSetup(true);
+$("homeBtn").onclick=()=>{
+  askConfirm("新建一个榜单？当前排名会丢失（除非你先分享了链接）。",()=>{
+  state=null;$("titleIn").value="";$("tagsIn").value="";draftScheme="hang";draftTiers=SCHEMES.hang.map(a=>a.slice());
+  try{history.replaceState(null,"",location.pathname+location.search)}catch(e){}showSetup(false);});
+};
+
+/* ---------- 分享：JSON → UTF-8 → base64url ---------- */
+/* 结构 v1: {v:1,t:标题,s:[[档名,颜色],...],k:[[档1标签...],...,[待排标签...]]} */
+function toData(blank){
+  const s=state.tiers.map(t=>[t.n,t.c.replace("#","").toUpperCase()]);
+  const k=blank?state.tiers.map(()=>[]).concat([allTags()]):state.tiers.map(t=>t.items.slice()).concat([state.pool.slice()]);
+  return {v:1,t:state.title,s,k};
+}
+function b64urlEncode(str){
+  const bytes=new TextEncoder().encode(str);let bin="";
+  for(let i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));
+  return btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function b64urlDecode(s){
+  s=s.replace(/-/g,"+").replace(/_/g,"/");while(s.length%4)s+="=";
+  const bin=atob(s);const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+  return new TextDecoder("utf-8").decode(bytes);
+}
+function encode(d){return b64urlEncode(JSON.stringify(d))}
+function decode(s){return JSON.parse(b64urlDecode(s))}
+function loadData(d){
+  if(!d||!Array.isArray(d.s)||!Array.isArray(d.k))throw new Error("bad");
+  const seen=new Set();const uniq=a=>(a||[]).map(String).filter(x=>x&&!seen.has(x)&&seen.add(x));
+  const tiers=d.s.map((t,i)=>({n:String(t[0]||"?"),c:"#"+String(t[1]||"BBBBBB").replace("#",""),items:uniq(d.k[i])}));
+  const pool=uniq(d.k[d.s.length]);
+  state={title:String(d.t||"我的排行榜"),tiers,pool};
+}
+function linkFor(blank){return location.href.split("#")[0]+"#d="+encode(toData(blank))}
+async function copyOrShow(text,label){
+  let ok=false;
+  try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);ok=true}}catch(e){}
+  if(!ok){try{const t=document.createElement("textarea");t.value=text;t.style.position="fixed";t.style.opacity="0";document.body.append(t);t.select();ok=document.execCommand("copy");t.remove()}catch(e){}}
+  if(ok)toast(label+"已复制，可以直接粘贴发给朋友");
+  else modalText("复制失败了，请长按下面的文字全选复制：",text);
+}
+$("shareBlank").onclick=()=>shareLink(true);
+$("shareMine").onclick=()=>shareLink(false);
+function shareLink(blank){
+  const url=linkFor(blank);
+  try{history.replaceState(null,"","#d="+url.split("#d=")[1])}catch(e){}
+  modalText((blank?"空白模板链接":"我的排名链接")+"（"+url.length+" 字符），已尝试复制：",url);
+  copyOrShow(url,"链接");
+}
+
+/* ---------- 文字版 ---------- */
+function textVersion(){
+  const lines=state.tiers.map(t=>`【${t.n}】${t.items.join("、")||"（空）"}`);
+  if(state.pool.length)lines.push(`【待排】${state.pool.join("、")}`);
+  return state.title+"\n"+lines.join("\n");
+}
+$("copyText").onclick=()=>copyOrShow(textVersion(),"文字版");
+
+/* ---------- 导出图片（canvas） ---------- */
+const FONT='"PingFang SC","Hiragino Sans GB","Noto Sans SC","Noto Sans CJK SC","Source Han Sans SC","Microsoft YaHei",sans-serif';
+function drawImage(){
+  const W=1000,PAD=24,B=6,LW=170,CPX=14,CH=42,GAP=10,ZP=14,MINH=110,TITLE_H=84;
+  const scale=2;
+  const cv=document.createElement("canvas");const ctx=cv.getContext("2d");
+  ctx.font="500 20px "+FONT;
+  const zoneW=W-PAD*2-B*2-LW-B;
+  // 布局
+  const rows=state.tiers.map(t=>{
+    const pos=[];let x=ZP,y=ZP;
+    t.items.forEach(name=>{
+      let w=Math.min(ctx.measureText(name).width+CPX*2+4,zoneW-ZP*2);
+      if(x+w>zoneW-ZP&&x>ZP){x=ZP;y+=CH+GAP}
+      pos.push({name,x,y,w});x+=w+GAP;
+    });
+    const h=Math.max(MINH,(t.items.length?y+CH+ZP:0));
+    return {t,pos,h};
+  });
+  const boardH=rows.reduce((s,r)=>s+r.h+B,0)+B;
+  const H=PAD+TITLE_H+boardH+PAD+30;
+  cv.width=W*scale;cv.height=H*scale;ctx.scale(scale,scale);
+  ctx.fillStyle="#fff";ctx.fillRect(0,0,W,H);
+  ctx.fillStyle="#000";ctx.textBaseline="middle";ctx.textAlign="left";
+  ctx.font="900 40px "+FONT;fitText(ctx,state.title,PAD,PAD+TITLE_H/2-6,W-PAD*2,"900",40);
+  // 外框
+  let y=PAD+TITLE_H;
+  ctx.fillStyle="#000";ctx.fillRect(PAD,y,W-PAD*2,boardH);
+  y+=B;
+  rows.forEach(r=>{
+    const lx=PAD+B, zx=lx+LW+B;
+    ctx.fillStyle=r.t.c;ctx.fillRect(lx,y,LW,r.h);
+    ctx.fillStyle="#c8c8c8";ctx.fillRect(zx,y,zoneW,r.h);
+    // 档名
+    ctx.fillStyle=isLight(r.t.c)?"#000":"#fff";ctx.textAlign="center";
+    const n=[...r.t.n].length;let fs=n<=1?60:n<=2?54:n<=3?40:n<=4?32:24;
+    ctx.font="900 "+fs+"px "+FONT;
+    while(ctx.measureText(r.t.n).width>LW-16&&fs>12){fs-=2;ctx.font="900 "+fs+"px "+FONT}
+    ctx.fillText(r.t.n,lx+LW/2,y+r.h/2+2);
+    // 标签
+    ctx.textAlign="left";ctx.font="500 20px "+FONT;
+    r.pos.forEach(p=>{
+      const cx=zx+p.x,cy=y+p.y;
+      roundRect(ctx,cx,cy,p.w,CH,8);ctx.fillStyle="#fff";ctx.fill();ctx.lineWidth=2;ctx.strokeStyle="#555";ctx.stroke();
+      ctx.fillStyle="#000";
+      ctx.save();ctx.beginPath();ctx.rect(cx+4,cy,p.w-8,CH);ctx.clip();
+      ctx.fillText(p.name,cx+CPX+2,cy+CH/2+1);ctx.restore();
+    });
+    y+=r.h+B;
+  });
+  ctx.fillStyle="#888";ctx.font="400 14px "+FONT;ctx.textAlign="right";
+  ctx.fillText("夯拉排行榜"+(state.pool.length?" · 另有 "+state.pool.length+" 个未排":""),W-PAD,H-PAD-6);
+  return cv.toDataURL("image/png");
+}
+function fitText(ctx,txt,x,y,maxW,weight,size){
+  while(ctx.measureText(txt).width>maxW&&size>16){size-=2;ctx.font=weight+" "+size+"px "+FONT}
+  ctx.fillText(txt,x,y);
+}
+function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+$("exportImg").onclick=()=>{
+  const url=drawImage();
+  const m=openModal();
+  m.box.append(mk("p","长按图片保存（电脑上右键另存为）"));
+  const img=new Image();img.src=url;img.alt=state.title;m.box.append(img);
+  m.addClose();
+};
+
+/* ---------- 弹窗 / 提示 ---------- */
+function openModal(){
+  const wrap=document.createElement("div");wrap.className="modal";
+  const box=document.createElement("div");box.className="box";box.setAttribute("role","dialog");box.setAttribute("aria-modal","true");
+  wrap.append(box);document.body.append(wrap);
+  const close=()=>{wrap.remove();document.removeEventListener("keydown",esc)};
+  const esc=e=>{if(e.key==="Escape")close()};document.addEventListener("keydown",esc);
+  wrap.addEventListener("click",e=>{if(e.target===wrap)close()});
+  return {box,close,addClose(){const r=document.createElement("div");r.className="row";const b=mk("button","关闭");b.className="primary";b.onclick=close;r.append(b);box.append(r);b.focus()}};
+}
+function modalText(msg,text){
+  document.querySelectorAll(".modal").forEach(m=>m.remove());
+  const m=openModal();m.box.append(mk("p",msg));
+  const ta=document.createElement("textarea");ta.readOnly=true;ta.value=text;m.box.append(ta);
+  m.addClose();ta.focus();ta.select();
+}
+let tt;function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),2000)}
+
+/* ---------- 启动：有 #d= 就还原 ---------- */
+function boot(){
+  const m=location.hash.match(/^#d=([A-Za-z0-9_\-]+)/);
+  if(m){try{loadData(decode(m[1]));showRank();return}catch(e){toast("链接坏了，已打开首页")}}
+  showSetup(false);
+}
+addEventListener("hashchange",()=>{const m=location.hash.match(/^#d=([A-Za-z0-9_\-]+)/);if(m){try{loadData(decode(m[1]));showRank()}catch(e){}}});
+boot();
+</script>
+</body>
+</html>
